@@ -1,0 +1,209 @@
+# ==========================================
+# BadWallet API & Payment Service — Tests
+# ==========================================
+# Extension requise : REST Client (VS Code)
+# Auteur : Amina
+# ==========================================
+
+@walletHost = http://localhost:8080
+@paymentHost = http://localhost:8081
+
+# ==========================================
+# PARTIE 1 : badwallet-api (Port 8080)
+# ==========================================
+
+### 1.1 Seeder la base de données (Async)
+POST {{walletHost}}/api/v1/wallets/seed?numWallets=10&eventsPerWallet=100
+Content-Type: application/json
+
+### 1.2 Créer un nouveau portefeuille
+POST {{walletHost}}/api/v1/wallets
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221779998877",
+  "email": "testclient@gmail.com",
+  "initialBalance": 25000,
+  "code": "WLT-TEST001",
+  "currency": "XOF"
+}
+
+### 1.3 Lister tous les portefeuilles (Paginé)
+GET {{walletHost}}/api/v1/wallets?page=0&size=10
+Content-Type: application/json
+
+### 1.4 Consulter un portefeuille par numéro de téléphone
+GET {{walletHost}}/api/v1/wallets/+221770000003
+Content-Type: application/json
+
+### 1.5 Consulter uniquement le solde
+GET {{walletHost}}/api/v1/wallets/+221770000003/balance
+Content-Type: application/json
+
+### 1.6 Effectuer un Dépôt (CREDIT_CARD)
+POST {{walletHost}}/api/v1/wallets/1/deposit
+Content-Type: application/json
+
+{
+  "amount": 50000.00,
+  "paymentMethod": "CREDIT_CARD"
+}
+
+### 1.7 Effectuer un Dépôt (WALLET_TARGET)
+POST {{walletHost}}/api/v1/wallets/1/deposit
+Content-Type: application/json
+
+{
+  "amount": 20000.00,
+  "paymentMethod": "WALLET_TARGET"
+}
+
+### 1.8 Effectuer un Retrait (frais 1% plafonnés à 5000 CFA)
+POST {{walletHost}}/api/v1/wallets/withdraw
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221770000001",
+  "amount": 10000.00
+}
+
+### 1.9 Retrait avec plafond de frais (600 000 -> frais = 5000 CFA max)
+POST {{walletHost}}/api/v1/wallets/withdraw
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221770000003",
+  "amount": 600000.00
+}
+
+### 1.10 Effectuer un Transfert entre deux portefeuilles
+POST {{walletHost}}/api/v1/wallets/transfer
+Content-Type: application/json
+
+{
+  "senderPhone": "+221770000001",
+  "receiverPhone": "+221770000002",
+  "amount": 2000.00
+}
+
+### 1.11 Payer une facture du mois en cours (ISM)
+POST {{walletHost}}/api/v1/wallets/pay
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221770000003",
+  "serviceName": "ISM",
+  "amount": 5000.00
+}
+
+### 1.12 Payer une facture du mois en cours (WOYAFAL)
+POST {{walletHost}}/api/v1/wallets/pay
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221770000001",
+  "serviceName": "WOYAFAL",
+  "amount": 25000.00
+}
+
+### 1.13 Payer des factures spécifiques par références
+POST {{walletHost}}/api/v1/wallets/pay-factures
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221770000003",
+  "serviceName": "ISM",
+  "factureReferences": ["FAC-ISM-3-1", "FAC-ISM-3-3"]
+}
+
+### 1.14 Consulter l'historique des transactions
+GET {{walletHost}}/api/v1/wallets/+221770000003/transactions
+Content-Type: application/json
+
+# ==========================================
+# PARTIE 2 : Proxy API dans badwallet-api
+# ==========================================
+
+### 2.1 Consulter les factures impayées du mois en cours
+GET {{walletHost}}/api/v1/external/factures/WLT-0000003/current
+Content-Type: application/json
+
+### 2.2 Consulter les factures filtrées par unité (WOYAFAL)
+GET {{walletHost}}/api/v1/external/factures/WLT-0000003/current?unite=WOYAFAL
+Content-Type: application/json
+
+### 2.3 Consulter les factures filtrées par unité (ISM)
+GET {{walletHost}}/api/v1/external/factures/WLT-0000001/current?unite=ISM
+Content-Type: application/json
+
+### 2.4 Consulter les factures sur une période
+GET {{walletHost}}/api/v1/external/factures/WLT-0000003/periode?debut=2026-05-01&fin=2026-07-01
+Content-Type: application/json
+
+# ==========================================
+# PARTIE 3 : payment-service (Port 8081)
+# ==========================================
+
+### 3.1 Lister toutes les factures (paginé)
+GET {{paymentHost}}/api/v1/factures?page=0&size=10
+Content-Type: application/json
+
+### 3.2 Factures du mois en cours pour WLT-0000001
+GET {{paymentHost}}/api/v1/factures/WLT-0000001/current
+Content-Type: application/json
+
+### 3.3 Factures du mois en cours pour WLT-0000003
+GET {{paymentHost}}/api/v1/factures/WLT-0000003/current
+Content-Type: application/json
+
+### 3.4 Factures filtrées par unité WOYAFAL
+GET {{paymentHost}}/api/v1/factures/WLT-0000001/current?unite=WOYAFAL
+Content-Type: application/json
+
+### 3.5 Factures sur une période
+GET {{paymentHost}}/api/v1/factures/WLT-0000003/periode?debut=2026-05-01&fin=2026-07-01
+Content-Type: application/json
+
+### 3.6 Payer une facture directement (payment-service)
+POST {{paymentHost}}/api/v1/factures/FAC-ISM-3-1/pay
+Content-Type: application/json
+
+{
+  "amount": 150000.00
+}
+
+# ==========================================
+# PARTIE 4 : Tests de validation (erreurs)
+# ==========================================
+
+### 4.1 Création wallet sans téléphone (400 Bad Request)
+POST {{walletHost}}/api/v1/wallets
+Content-Type: application/json
+
+{
+  "email": "test@gmail.com",
+  "initialBalance": 1000,
+  "code": "WLT-ERR001",
+  "currency": "XOF"
+}
+
+### 4.2 Retrait avec solde insuffisant (400 Bad Request)
+POST {{walletHost}}/api/v1/wallets/withdraw
+Content-Type: application/json
+
+{
+  "phoneNumber": "+221770000001",
+  "amount": 9999999.00
+}
+
+### 4.3 Wallet introuvable (404 Not Found)
+GET {{walletHost}}/api/v1/wallets/+221700000000
+Content-Type: application/json
+
+### 4.4 Facture déjà payée (400 Bad Request)
+POST {{paymentHost}}/api/v1/factures/FAC-ISM-3-1/pay
+Content-Type: application/json
+
+{
+  "amount": 150000.00
+}
